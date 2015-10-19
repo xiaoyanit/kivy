@@ -7,9 +7,9 @@ Search touch for a double tap
 
 __all__ = ('InputPostprocDoubleTap', )
 
+from time import time
 from kivy.config import Config
 from kivy.vector import Vector
-from kivy.clock import Clock
 
 
 class InputPostprocDoubleTap(object):
@@ -22,21 +22,21 @@ class InputPostprocDoubleTap(object):
         double_tap_time = 250
         double_tap_distance = 20
 
-    Distance parameter is in 0-1000, and time is in millisecond.
+    Distance parameter is in the range 0-1000 and time is in milliseconds.
     '''
 
     def __init__(self):
         dist = Config.getint('postproc', 'double_tap_distance')
         self.double_tap_distance = dist / 1000.0
-        time = Config.getint('postproc', 'double_tap_time')
-        self.double_tap_time = time / 1000.0
+        tap_time = Config.getint('postproc', 'double_tap_time')
+        self.double_tap_time = tap_time / 1000.0
         self.touches = {}
 
     def find_double_tap(self, ref):
         '''Find a double tap touch within self.touches.
-        The touch must be not a previous double tap, and the distance
-        must be ok, also, the touch profile must be compared so the kind
-        of touch is the same
+        The touch must be not a previous double tap and the distance must be
+        within the specified threshold. Additionally, the touch profiles
+        must be the same kind of touch.
         '''
         ref_button = None
         if 'button' in ref.profile:
@@ -77,8 +77,8 @@ class InputPostprocDoubleTap(object):
                 double_tap = self.find_double_tap(touch)
                 if double_tap:
                     touch.is_double_tap = True
-                    time = touch.time_start - double_tap.time_start
-                    touch.double_tap_time = time
+                    tap_time = touch.time_start - double_tap.time_start
+                    touch.double_tap_time = tap_time
                     distance = double_tap.double_tap_distance
                     touch.double_tap_distance = distance
 
@@ -86,7 +86,7 @@ class InputPostprocDoubleTap(object):
             self.touches[touch.uid] = (etype, touch)
 
         # second, check if up-touch is timeout for double tap
-        time_current = Clock.get_time()
+        time_current = time()
         to_delete = []
         for touchid in self.touches.keys():
             etype, touch = self.touches[touchid]

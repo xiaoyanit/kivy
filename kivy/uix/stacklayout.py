@@ -14,15 +14,19 @@ Stack Layout
 
 .. versionadded:: 1.0.5
 
-:class:`StackLayout` arranges children vertically or horizontally, as many
-as the layout can fit.
+The :class:`StackLayout` arranges children vertically or horizontally, as many
+as the layout can fit. The size of the individual children widgets do not
+have to be uniform.
 
+For example, to display widgets that get progressively larger in width::
 
-.. warning:
+    root = StackLayout()
+    for i in range(25):
+        btn = Button(text=str(i), width=40 + i * 5, size_hint=(None, 0.15))
+        root.add_widget(btn)
 
-    This is experimental and subject to change as long as this warning notice is
-    present.
-
+.. image:: images/stacklayout_sizing.png
+    :align: left
 '''
 
 __all__ = ('StackLayout', )
@@ -39,40 +43,42 @@ class StackLayout(Layout):
     spacing = VariableListProperty([0, 0], length=2)
     '''Spacing between children: [spacing_horizontal, spacing_vertical].
 
-    spacing also accepts a one argument form [spacing].
+    spacing also accepts a single argument form [spacing].
 
-    :data:`spacing` is a :class:`~kivy.properties.VariableListProperty`, default to
-    [0, 0].
+    :attr:`spacing` is a
+    :class:`~kivy.properties.VariableListProperty` and defaults to [0, 0].
+
     '''
 
     padding = VariableListProperty([0, 0, 0, 0])
-    '''Padding between layout box and children: [padding_left, padding_top,
-    padding_right, padding_bottom].
+    '''Padding between the layout box and it's children: [padding_left,
+    padding_top, padding_right, padding_bottom].
 
     padding also accepts a two argument form [padding_horizontal,
-    padding_vertical] and a one argument form [padding].
+    padding_vertical] and a single argument form [padding].
 
     .. versionchanged:: 1.7.0
+        Replaced the NumericProperty with a VariableListProperty.
 
-    Replaced NumericProperty with VariableListProperty.
-
-    :data:`padding` is a :class:`~kivy.properties.VariableListProperty`, default to
+    :attr:`padding` is a
+    :class:`~kivy.properties.VariableListProperty` and defaults to
     [0, 0, 0, 0].
+
     '''
 
     orientation = OptionProperty('lr-tb', options=(
-        'lr-tb', 'tb-lr', 'rl-tb', 'tb-rl', 'lr-bt', 'bt-lr', 'rl-bt', 'bt-rl'))
+        'lr-tb', 'tb-lr', 'rl-tb', 'tb-rl', 'lr-bt', 'bt-lr', 'rl-bt',
+        'bt-rl'))
     '''Orientation of the layout.
 
-    :data:`orientation` is an :class:`~kivy.properties.OptionProperty`, default
-    to 'lr-tb'.
+    :attr:`orientation` is an :class:`~kivy.properties.OptionProperty` and
+    defaults to 'lr-tb'.
 
-    Valid orientations are: 'lr-tb', 'tb-lr', 'rl-tb', 'tb-rl', 'lr-bt',
-    'bt-lr', 'rl-bt', 'bt-rl'
+    Valid orientations are 'lr-tb', 'tb-lr', 'rl-tb', 'tb-rl', 'lr-bt',
+    'bt-lr', 'rl-bt' and 'bt-rl'.
 
     .. versionchanged:: 1.5.0
-
-        :data:`orientation` now correctly handles all valid combinations of
+        :attr:`orientation` now correctly handles all valid combinations of
         'lr','rl','tb','bt'. Before this version only 'lr-tb' and
         'tb-lr' were supported, and 'tb-lr' was misnamed and placed
         widgets from bottom to top and from right to left (reversed compared
@@ -80,50 +86,58 @@ class StackLayout(Layout):
 
     .. note::
 
-        lr mean Left to Right.
-        rl mean Right to Left.
-        tb mean Top to Bottom.
-        bt mean Bottom to Top.
+        'lr' means Left to Right.
+        'rl' means Right to Left.
+        'tb' means Top to Bottom.
+        'bt' means Bottom to Top.
     '''
 
     minimum_width = NumericProperty(0)
-    '''Minimum width needed to contain all children.
+    '''Minimum width needed to contain all children. It is automatically set
+    by the layout.
 
     .. versionadded:: 1.0.8
 
-    :data:`minimum_width` is a :class:`kivy.properties.NumericProperty`, default
-    to 0.
+    :attr:`minimum_width` is a :class:`kivy.properties.NumericProperty` and
+    defaults to 0.
     '''
 
     minimum_height = NumericProperty(0)
-    '''Minimum height needed to contain all children.
+    '''Minimum height needed to contain all children. It is automatically set
+    by the layout.
 
     .. versionadded:: 1.0.8
 
-    :data:`minimum_height` is a :class:`kivy.properties.NumericProperty`,
-    default to 0.
+    :attr:`minimum_height` is a :class:`kivy.properties.NumericProperty` and
+    defaults to 0.
     '''
 
     minimum_size = ReferenceListProperty(minimum_width, minimum_height)
-    '''Minimum size needed to contain all children.
+    '''Minimum size needed to contain all children. It is automatically set
+    by the layout.
 
     .. versionadded:: 1.0.8
 
-    :data:`minimum_size` is a :class:`~kivy.properties.ReferenceListProperty` of
-    (:data:`minimum_width`, :data:`minimum_height`) properties.
+    :attr:`minimum_size` is a
+    :class:`~kivy.properties.ReferenceListProperty` of
+    (:attr:`minimum_width`, :attr:`minimum_height`) properties.
     '''
 
     def __init__(self, **kwargs):
         super(StackLayout, self).__init__(**kwargs)
-        self.bind(
-            padding=self._trigger_layout,
-            spacing=self._trigger_layout,
-            children=self._trigger_layout,
-            orientation=self._trigger_layout,
-            size=self._trigger_layout,
-            pos=self._trigger_layout)
+        trigger = self._trigger_layout
+        fbind = self.fbind
+        fbind('padding', trigger)
+        fbind('spacing', trigger)
+        fbind('children', trigger)
+        fbind('orientation', trigger)
+        fbind('size', trigger)
+        fbind('pos', trigger)
 
     def do_layout(self, *largs):
+        if not self.children:
+            return
+
         # optimize layout by preventing looking at the same attribute in a loop
         selfpos = self.pos
         selfsize = self.size
@@ -174,58 +188,87 @@ class StackLayout(Layout):
         # space calculation, used for determining when a row or column is full
 
         if orientation[0] in ('lr', 'rl'):
-            lu = self.size[innerattr] - padding_x
             sv = padding_y  # size in v-direction, for minimum_size property
             su = padding_x  # size in h-direction
             spacing_u = spacing_x
             spacing_v = spacing_y
+            padding_u = padding_x
+            padding_v = padding_y
         else:
-            lu = self.size[innerattr] - padding_y
             sv = padding_x  # size in v-direction, for minimum_size property
             su = padding_y  # size in h-direction
             spacing_u = spacing_y
             spacing_v = spacing_x
+            padding_u = padding_y
+            padding_v = padding_x
 
         # space calculation, row height or column width, for arranging widgets
         lv = 0
 
         urev = (deltau < 0)
         vrev = (deltav < 0)
+        firstchild = self.children[0]
+        sizes = []
         for c in reversed(self.children):
-            # Issue#823: ReferenceListProperty doesn't allow changing
-            # individual properties.
-            # when the above issue is fixed we can remove csize from below and
-            # access c.size[i] directly
-            csize = c.size[:]  # we need to update the whole tuple at once.
-            if c.size_hint[0]:
-                # calculate width
-                csize[0] = c.size_hint[0] * (selfsize[0] - padding_x)
-            if c.size_hint[1]:
-                # calculate height
-                csize[1] = c.size_hint[1] * (selfsize[1] - padding_y)
-            c.size = tuple(csize)
+            if c.size_hint[outerattr]:
+                c.size[outerattr] = max(1,
+                    c.size_hint[outerattr] * (selfsize[outerattr] - padding_v))
 
             # does the widget fit in the row/column?
-            if lu - c.size[innerattr] >= 0:
+            ccount = len(lc)
+            totalsize = availsize = max(
+                0, selfsize[innerattr] - padding_u - spacing_u * ccount)
+            if not lc:
+                if c.size_hint[innerattr]:
+                    childsize = max(1, c.size_hint[innerattr] * totalsize)
+                else:
+                    childsize = max(0, c.size[innerattr])
+                availsize = selfsize[innerattr] - padding_u - childsize
+                testsizes = [childsize]
+            else:
+                testsizes = [0] * (ccount + 1)
+                for i, child in enumerate(lc):
+                    if availsize <= 0:
+                        # no space left but we're trying to add another widget.
+                        availsize = -1
+                        break
+                    if child.size_hint[innerattr]:
+                        testsizes[i] = childsize = max(
+                            1, child.size_hint[innerattr] * totalsize)
+                    else:
+                        testsizes[i] = childsize = max(0, child.size[innerattr])
+                    availsize -= childsize
+                if c.size_hint[innerattr]:
+                    testsizes[-1] = max(1, c.size_hint[innerattr] * totalsize)
+                else:
+                    testsizes[-1] = max(0, c.size[innerattr])
+                availsize -= testsizes[-1]
+
+            if availsize >= 0 or not lc:
+                # even if there's no space, we always add one widget to a row
                 lc.append(c)
-                lu -= c.size[innerattr] + spacing_u
+                sizes = testsizes
                 lv = max(lv, c.size[outerattr])
                 continue
+
+            # apply the sizes
+            for i, child in enumerate(lc):
+                if child.size_hint[innerattr]:
+                    child.size[innerattr] = sizes[i]
 
             # push the line
             sv += lv + spacing_v
             for c2 in lc:
                 if urev:
                     u -= c2.size[innerattr]
-                p = [0, 0]  # issue #823
-                p[innerattr] = u
-                p[outerattr] = v
+                c2.pos[innerattr] = u
+                pos_outer = v
                 if vrev:
                     # v position is actually the top/right side of the widget
                     # when going from high to low coordinate values,
                     # we need to subtract the height/width from the position.
-                    p[outerattr] -= c2.size[outerattr]
-                c2.pos = tuple(p)  # issue #823
+                    pos_outer -= c2.size[outerattr]
+                c2.pos[outerattr] = pos_outer
                 if urev:
                     u -= spacing_u
                 else:
@@ -235,26 +278,32 @@ class StackLayout(Layout):
             v += deltav * spacing_v
             lc = [c]
             lv = c.size[outerattr]
-            lu = selfsize[innerattr] - su - c.size[innerattr] - spacing_u
+            if c.size_hint[innerattr]:
+                sizes = [max(1, c.size_hint[innerattr] *
+                             (selfsize[innerattr] - padding_u))]
+            else:
+                sizes = [max(0, c.size[innerattr])]
             u = ustart
 
         if lc:
+            # apply the sizes
+            for i, child in enumerate(lc):
+                if child.size_hint[innerattr]:
+                    child.size[innerattr] = sizes[i]
+
             # push the last (incomplete) line
             sv += lv + spacing_v
             for c2 in lc:
                 if urev:
                     u -= c2.size[innerattr]
-                p = [0, 0]  # issue #823
-                p[innerattr] = u
-                p[outerattr] = v
+                c2.pos[innerattr] = u
+                pos_outer = v
                 if vrev:
-                    p[outerattr] -= c2.size[outerattr]
-                c2.pos = tuple(p)  # issue #823
+                    pos_outer -= c2.size[outerattr]
+                c2.pos[outerattr] = pos_outer
                 if urev:
                     u -= spacing_u
                 else:
                     u += c2.size[innerattr] + spacing_u
 
-        minsize = self.minimum_size[:]  # issue #823
-        minsize[outerattr] = sv
-        self.minimum_size = tuple(minsize)
+        self.minimum_size[outerattr] = sv

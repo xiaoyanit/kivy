@@ -2,7 +2,8 @@
 JSON store
 ==========
 
-Can be used to save/load key/value from a json file.
+A :mod:`Storage <kivy.storage>` module used to save/load key-value pairs from
+a json file.
 '''
 
 __all__ = ('JsonStore', )
@@ -15,8 +16,8 @@ from json import loads, dump
 
 
 class JsonStore(AbstractStore):
-    '''Store implementation using a json file for storing the keys/values.
-    See module documentation for more informations.
+    '''Store implementation using a json file for storing the key-value pairs.
+    See the :mod:`kivy.storage` module documentation for more information.
     '''
     def __init__(self, filename, **kwargs):
         self.filename = filename

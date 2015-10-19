@@ -59,7 +59,6 @@ Cython. (Reference: http://mail.scipy.org/pipermail/nipy-devel/2011-March/005709
 
 Solution: use `easy_install`, as our documentation said.
 
-
 Android FAQ
 -----------
 
@@ -97,11 +96,11 @@ lines to the xml configuration, and you're done.
 What's the difference between python-for-android from Kivy and SL4A?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Despite having the same name, Kivy's python-for-android is not related to the 
-python-for-android project from SL4A, Py4A, or android-python27. They are 
-distinctly different projects with different goals. You may be able to use 
-Py4A with Kivy, but no code or effort has been made to do so. The Kivy team 
-feels that our python-for-android is the best solution for us going forward, 
+Despite having the same name, Kivy's python-for-android is not related to the
+python-for-android project from SL4A, Py4A, or android-python27. They are
+distinctly different projects with different goals. You may be able to use
+Py4A with Kivy, but no code or effort has been made to do so. The Kivy team
+feels that our python-for-android is the best solution for us going forward,
 and attempts to integrate with and support Py4A is not a good use of our time.
 
 
@@ -161,22 +160,31 @@ But even if this is not sufficient, you still have the option of using
 Cython for your own code to *greatly* speed it up.
 
 Trust us when we say that we have given this very careful thought.
-We have performed many different benchmarks and come up with some 
+We have performed many different benchmarks and come up with some
 clever optimizations to make your application run smoothly.
 
 
 Does Kivy support Python 3.x?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-No. Not yet. Python 3 is certainly a good thing; However, it broke
-backwards compatibility (for good reasons) which means that some
-considerable portion of available Python projects do not yet work
-with Python 3. This also applies to some of the projects that Kivy
-uses as a dependency, which is why we haven't make the switch yet.
-We would also need to switch our own codebase to Python 3. We haven't
-done that yet because it's not very high on our priority list, but if
-somebody doesn't want to wait for us to do it, please go ahead.
-Please note, though, that Python 2.x is still the de facto standard.
+Yes! As of version 1.8.0 Kivy supports both Python >= 2.7 and Python >= 3.3
+with the same codebase.
+
+However, be aware that while Kivy will run in Python 3.3+, packaging support
+is not yet complete. If you plan to create mobile apps for Android or iOS,
+you should use Python 2.7 for now.
+
+
+I've already started with Python 3.x! Is there anything I can do?
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Be patient. We're working on it. :)
+
+If you can't wait, you could try using the 3to2_ tool, which converts valid
+Python 3 syntax to Python 2. However, be warned that this tool does not work
+for all Python 3 code.
+
+.. _3to2: https://pypi.python.org/pypi/3to2
 
 
 How is Kivy related to PyMT?
@@ -188,7 +196,7 @@ still is) a project named PyMT that was led by our core developers.
 We learned a great deal from that project during the time that we
 developed it. In the more than two years of research and development
 we found many interesting ways to improve the design of our
-framework. We have performed numerous benchmarks and as it turns out, 
+framework. We have performed numerous benchmarks and as it turns out,
 to achieve the great speed and flexibility that Kivy has, we had to
 rewrite quite a big portion of the codebase, making this a
 backwards-incompatible but future-proof decision.
@@ -262,4 +270,3 @@ Here's a checklist:
   asking, it might not be well received.
 
 Good luck! :-)
-

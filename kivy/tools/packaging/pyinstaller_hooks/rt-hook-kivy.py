@@ -1,5 +1,5 @@
 from os.path import join, dirname
-from os import environ, chdir, putenv
+from os import environ, chdir, putenv, getenv
 import sys
 
 root = 'kivy_install'

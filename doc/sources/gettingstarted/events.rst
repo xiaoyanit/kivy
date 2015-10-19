@@ -1,7 +1,7 @@
 Events
 ------
 
-Kivy is mostly event-based, meaning the flow of the program is determined
+Kivy is mostly `event-based <http://en.wikipedia.org/wiki/Event-driven_programming>`_, meaning the flow of the program is determined
 by events.
 
 **Clock events**
@@ -10,7 +10,7 @@ by events.
     :class: gs-eleft
 
 The :doc:`/api-kivy.clock` allows you to schedule a function call in the
-future, as a one-time event with :meth:`~kivy.clock.ClockBase.schedule_once`,
+future as a one-time event with :meth:`~kivy.clock.ClockBase.schedule_once`,
 or as a repetitive event with :meth:`~kivy.clock.ClockBase.schedule_interval`.
 
 You can also create Triggered events with
@@ -47,7 +47,7 @@ changes its position or size, the corresponding event is automatically fired.
 In addition, you have the ability to create your own events using
 :meth:`~kivy.event.EventDispatcher.register_event_type`, as the
 `on_press` and `on_release` events in the :class:`~kivy.uix.button.Button`
-widgit demonstrate.
+widget demonstrate.
 
 Another thing to note is that if you override an event, you become responsible
 for implementing all its behaviour previously handled by the base class. The

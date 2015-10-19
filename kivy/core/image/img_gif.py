@@ -7,7 +7,7 @@
 #
 #    this program is distributed in the hope that it will be useful,
 #    but WITHOUT ANY WARRANTY; without even the implied warranty of
-#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 #    GNU General Public License for more details.
 #
 #    You should have received a copy of the GNU General Public License
@@ -211,8 +211,8 @@ class Gif(object):
         print(" " * 6, "Color resolution: %d" % self.color_resolution)
         print(" " * 6, "Sort flag: %r" % self.sort_flag)
         print(" " * 6, "Global color table flag: %r" % self.color_table_flag)
-        print(" " * 22, "...size: %d (%d bytes)" % \
-            (self.global_color_table_size, self.global_color_table_size * 3))
+        print(" " * 22, "...size: %d (%d bytes)" %
+              (self.global_color_table_size, self.global_color_table_size * 3))
         print("Background color: %d" % self.background_color)
         print("Aspect ratio info: %d" % self.aspect_ratio)
 
@@ -363,7 +363,7 @@ class GifDecoder(Gif):
                 image.has_transparent_color = has_transparent_color
                 image.draw_method = drw_method
                 image.codesize = self_pops('<B', self_data)[0]
-                image.lzwcode = ''
+                image.lzwcode = b''
                 image_lzwcode = image.lzwcode
                 ###TODO too many corner casses for gifs:(
                 table_size = image.local_color_table_size\
@@ -379,7 +379,7 @@ class GifDecoder(Gif):
                     if blocksize == 0:
                         break   # no more image data
                     lzwdata = self_pop(self_data, blocksize)
-                    image_lzwcode = ''.join((image_lzwcode, lzwdata))
+                    image_lzwcode = b''.join((image_lzwcode, lzwdata))
 
                 if self_debug_enabled:
                     print('LZW length:', len(image_lzwcode))

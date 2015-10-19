@@ -2,13 +2,14 @@
 Weak Method
 ===========
 
-:class:`WeakMethod` is used in Clock class to prevent the clock from taking
-memory if the object is deleted. Check examples/core/clock_method.py for more
-information.
+The :class:`WeakMethod` is used by the :class:`~kivy.clock.Clock` class to
+allow references to a bound method that permits the associated object to
+be garbage collected. Please refer to
+`examples/core/clock_method.py` for more information.
 
 This WeakMethod class is taken from the recipe
 http://code.activestate.com/recipes/81253/, based on the nicodemus version.
-(thanks to him !)
+Many thanks nicodemus!
 '''
 
 import weakref
@@ -17,7 +18,9 @@ import sys
 if sys.version > '3':
 
     class WeakMethod:
-        '''Implementation of weakref for function and bounded method.
+        '''Implementation of a
+        `weakref <http://en.wikipedia.org/wiki/Weak_reference>`_
+        for functions and bound methods.
         '''
         def __init__(self, method):
             self.method = None
@@ -35,12 +38,15 @@ if sys.version > '3':
 
         def __call__(self):
             '''Return a new bound-method like the original, or the
-            original function if refers just to a function or unbound
+            original function if it was just a function or unbound
             method.
-            Returns None if the original object doesn't exist
+            Returns None if the original object doesn't exist.
             '''
-            if self.proxy:
-                return getattr(self.proxy, self.method_name)
+            try:
+                if self.proxy:
+                    return getattr(self.proxy, self.method_name)
+            except ReferenceError:
+                pass
             return self.method
 
         def is_dead(self):
@@ -49,16 +55,27 @@ if sys.version > '3':
             '''
             return self.proxy is not None and not bool(dir(self.proxy))
 
+        def __eq__(self, other):
+            try:
+                if type(self) is not type(other):
+                    return False
+                s = self()
+                return s is not None and s == other()
+            except:
+                return False
+
         def __repr__(self):
             return '<WeakMethod proxy={} method={} method_name={}>'.format(
-                    self.proxy, self.method, self.method_name)
+                   self.proxy, self.method, self.method_name)
 
 else:
 
     import new
 
     class WeakMethod(object):
-        '''Implementation of weakref for function and bounded method.
+        '''Implementation of a
+        `weakref <http://en.wikipedia.org/wiki/Weak_reference>`_
+        for functions and bound methods.
         '''
 
         def __init__(self, method):
@@ -79,9 +96,9 @@ else:
 
         def __call__(self):
             '''Return a new bound-method like the original, or the
-            original function if refers just to a function or unbound
+            original function if it was just a function or unbound
             method.
-            Returns None if the original object doesn't exist
+            Returns None if the original object doesn't exist.
             '''
             if self.is_dead():
                 return None
@@ -99,10 +116,12 @@ else:
 
         def __eq__(self, other):
             try:
-                return type(self) is type(other) and self() == other()
+                if type(self) is not type(other):
+                    return False
+                s = self()
+                return s is not None and s == other()
             except:
                 return False
 
         def __ne__(self, other):
             return not self == other
-

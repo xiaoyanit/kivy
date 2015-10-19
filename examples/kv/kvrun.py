@@ -1,9 +1,8 @@
-#!/usr/bin/env python
-
 from kivy.app import App
 from kivy.clock import Clock
 from kivy.lang import Builder
 from kivy.core.window import Window
+
 
 class KvApp(App):
     def _print_fps(self, *largs):

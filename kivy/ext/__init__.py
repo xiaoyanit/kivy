@@ -9,16 +9,17 @@ a great number of software libraries that you can simply import and use right
 away.
 
 For some third-party libraries, it's not as easy as that though. Some libraries
-require special *wrappers* being written for them to be compatible with Kivy.
+require special *wrappers* to be written for them in order to be compatible with
+Kivy.
 Some libraries might even need to be patched so that they can be used (e.g. if
 they open their own OpenGL context to draw in and don't support proper offscreen
-rendering). In those occasions it is often possible to patch the library in
-question and to provide a Python wrapper around it that is compatible with Kivy.
+rendering). On those occasions it is often possible to patch the library in
+question and provide a Python wrapper around it that is compatible with Kivy.
 Sticking with this example, you can't just use the wrapper with a 'normal'
 installation of the library because the patch would be missing.
 
 That is where Kivy extensions come in handy. A Kivy extension represents a
-single third-party library that is provided in a way so that it can simply be
+single third-party library that is provided in such a way that it can simply be
 downloaded as a single file, put in a special directory and then offers the
 functionality of the wrapped library to Kivy applications.
 These extensions will not pollute the global Python environment (as they might
@@ -26,9 +27,14 @@ be unusable on their own after potential patches have been applied) because they
 reside in special directories for Kivy that are not accessed by Python by
 default.
 
+Naming and versioning
+---------------------
+
 Kivy extensions are provided as ``*.kex`` files. They are really just zip files,
 but you must not unzip them yourself. Kivy will do that for you as soon as it's
-appropriate to do so.
+appropriate to do so. They follow the following naming convention::
+
+    <NAME>-<MAJOR>.<MINOR>[.*].kex
 
 .. warning::
 
@@ -40,7 +46,7 @@ third-party libraries in a backwards compatible way (by specifying the version
 that you require) even if the actual third-party library does not guarantee
 backwards-compatibility. There will be no breakage if newer versions are
 installed (as a properly suited old version will still be used). For more
-information about that behaviour, consider the documentation of the
+information on such behaviour, please refer to the documentation of the
 :func:`~kivy.ext.load` function.
 
 If you want to provide an extension on your own, there is a helper script that
@@ -70,7 +76,7 @@ def load(extname, version):
     # XXX platform check?
     '''Use this function to tell Kivy to load a specific version of the given
     Extension. This is different from kivy's require() in that it will always
-    use the exact same major version you specify, even if a newer (major)
+    use the exact same major version you specify even if a newer (major)
     version is available. This is because we cannot make the same
     backwards-compatibility guarantee that we make with Kivy for third-party
     extensions. You will still get fixes and optimizations that don't break
@@ -158,7 +164,7 @@ def _is_valid_ext_name(name):
 
 
 def unzip_extensions():
-    '''Unzips Kivy extensions. Internal usage only; Don't use it yourself unless
+    '''Unzips Kivy extensions. Internal usage only: don't use it yourself unless
     you know what you're doing and really want to trigger installation of new
     extensions.
 
@@ -170,7 +176,7 @@ def unzip_extensions():
 
      * We require that the ``*.kex`` extension files be put into any of the
        directories listed in EXTENSION_PATHS which is normally
-       ~/.kivy/extensions and extensions/ inside kivy's base dirextory. We do
+       ~/.kivy/extensions and extensions/ inside kivy's base directory. We do
        not look for extensions on sys.path or elsewhere in the system.
 
      * We require that the Kivy extension is zipped in a way so that Python's

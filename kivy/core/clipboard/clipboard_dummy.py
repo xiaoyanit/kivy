@@ -1,5 +1,6 @@
 '''
-Clipboard Dummy: internal implementation without using system
+Clipboard Dummy: an internal implementation that does not use the system
+clipboard.
 '''
 
 __all__ = ('ClipboardDummy', )
@@ -23,4 +24,3 @@ class ClipboardDummy(ClipboardBase):
 
     def get_types(self):
         return list(self._data.keys())
-

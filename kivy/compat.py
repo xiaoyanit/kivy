@@ -3,7 +3,8 @@ Compatibility module for Python 2.7 and > 3.3
 =============================================
 '''
 
-__all__ = ('PY2', 'string_types', 'queue', 'iterkeys', 'itervalues', 'iteritems')
+__all__ = ('PY2', 'string_types', 'queue', 'iterkeys',
+           'itervalues', 'iteritems')
 
 import sys
 try:
@@ -16,10 +17,18 @@ PY2 = sys.version_info[0] == 2
 
 #: String types that can be used for checking if a object is a string
 string_types = None
+text_type = None
 if PY2:
     string_types = basestring
+    text_type = unicode
 else:
-    string_types = str
+    string_types = text_type = str
+
+#: unichr is just chr in py3, since all strings are unicode
+if PY2:
+    unichr = unichr
+else:
+    unichr = chr
 
 if PY2:
     iterkeys = lambda d: d.iterkeys()

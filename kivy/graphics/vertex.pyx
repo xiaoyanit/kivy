@@ -12,7 +12,7 @@ class VertexFormatException(Exception):
 
 cdef class VertexFormat:
     '''VertexFormat is used to describe the layout of the vertex data stored 
-    in vertex arrays/vbo.
+    in vertex arrays/vbo's.
 
     .. versionadded:: 1.6.0
     '''
@@ -56,7 +56,7 @@ cdef class VertexFormat:
                 attr.type = GL_FLOAT
                 attr.bytesize = sizeof(GLfloat) * size
             else:
-                raise VertexFormatException('Unknow format type %r' % tp)
+                raise VertexFormatException('Unknown format type %r' % tp)
 
             # adjust the size, and prepare for the next iteration.
             index += 1

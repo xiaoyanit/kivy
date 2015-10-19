@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """
     make-kivyext
     ~~~~~~~~~~~~~
@@ -62,6 +61,7 @@ import os
 from os.path import join
 from shutil import copy
 from subprocess import call
+import sys
 
 
 class PackageBuild(Command):
@@ -80,7 +80,7 @@ class PackageBuild(Command):
         for file in files:
             # Simply copy & replace...
             copy(join('dist', file), join('kexfiles', file[:-3] + "kex"))
-        print 'The extension files are now available in kexfiles/'
+        print('The extension files are now available in kexfiles/')
 
     def initialize_options(self):
         pass

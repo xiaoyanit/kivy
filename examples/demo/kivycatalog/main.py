@@ -1,3 +1,24 @@
+'''
+Kivy Catalog
+============
+
+The Kivy Catalog viewer showcases widgets available in Kivy
+and allows interactive editing of kivy language code to get immediate
+feedback. You should see a two panel screen with a menu spinner button
+(starting with 'Welcome') and other controls across the top.The left pane
+contains kivy (.kv) code, and the right side is that code rendered. You can
+edit the left pane, though changes will be lost when you use the menu
+spinner button. The catalog will show you dozens of .kv examples controlling
+different widgets and layouts.
+
+The catalog's interface is set in the file kivycatalog.kv, while the
+interfaces for each menu option are set in containers_kvs directory. To
+add a new .kv file to the Kivy Catalog, add a .kv file into the container_kvs
+directory and reference that file in the ScreenManager section of
+kivycatalog.kv.
+
+Known bugs include some issue with the drop
+'''
 import kivy
 kivy.require('1.4.2')
 import os
@@ -7,6 +28,7 @@ from kivy.factory import Factory
 from kivy.lang import Builder, Parser, ParserException
 from kivy.properties import ObjectProperty
 from kivy.config import Config
+from kivy.compat import PY2
 
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.codeinput import CodeInput
@@ -37,7 +59,8 @@ class Container(BoxLayout):
 
     def __init__(self, **kwargs):
         super(Container, self).__init__(**kwargs)
-        parser = Parser(content=open(self.kv_file).read())
+        self.previous_text = open(self.kv_file).read()
+        parser = Parser(content=self.previous_text)
         widget = Factory.get(parser.root.name)()
         Builder._apply_rule(widget, parser.root, parser.root)
         self.add_widget(widget)
@@ -55,7 +78,7 @@ for class_name in CONTAINER_CLASSES:
 
 
 class KivyRenderTextInput(CodeInput):
-    def _keyboard_on_key_down(self, window, keycode, text, modifiers):
+    def keyboard_on_key_down(self, window, keycode, text, modifiers):
         is_osx = sys.platform == 'darwin'
         # Keycodes on OSX:
         ctrl, cmd = 64, 1024
@@ -68,7 +91,7 @@ class KivyRenderTextInput(CodeInput):
                     self.catalog.change_kv(True)
                     return
 
-        super(KivyRenderTextInput, self)._keyboard_on_key_down(
+        return super(KivyRenderTextInput, self).keyboard_on_key_down(
             window, keycode, text, modifiers)
 
 
@@ -108,17 +131,20 @@ class Catalog(BoxLayout):
         self.screen_manager.current = value
 
         child = self.screen_manager.current_screen.children[0]
-        with open(child.kv_file) as file:
-            self.language_box.text = file.read()
+        with open(child.kv_file, 'rb') as file:
+            self.language_box.text = file.read().decode('utf8')
+        Clock.unschedule(self.change_kv)
+        self.change_kv()
         # reset undo/redo history
         self.language_box.reset_undo()
 
     def schedule_reload(self):
         if self.auto_reload:
-            txt = self.language_box.text.encode('utf8')
-            if txt == self._previously_parsed_text:
+            txt = self.language_box.text
+            child = self.screen_manager.current_screen.children[0]
+            if txt == child.previous_text:
                 return
-            self._previously_parsed_text = txt
+            child.previous_text = txt
             Clock.unschedule(self.change_kv)
             Clock.schedule_once(self.change_kv, 2)
 
@@ -128,7 +154,7 @@ class Catalog(BoxLayout):
         on the kv file the user entered. If there is an error in their kv
         syntax, show a nice popup.'''
 
-        txt = self.language_box.text.encode('utf8')
+        txt = self.language_box.text
         kv_container = self.screen_manager.current_screen.children[0]
         try:
             parser = Parser(content=txt)
@@ -152,8 +178,12 @@ class Catalog(BoxLayout):
 class KivyCatalogApp(App):
     '''The kivy App that runs the main root. All we do is build a catalog
     widget into the root.'''
+
     def build(self):
         return Catalog()
+
+    def on_pause(self):
+        return True
 
 
 if __name__ == "__main__":

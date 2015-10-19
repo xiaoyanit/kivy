@@ -21,6 +21,7 @@ IF USE_OPENGL_DEBUG == 1:
 from kivy.compat import PY2
 from kivy.logger import Logger
 from kivy.graphics.context cimport get_context, Context
+from weakref import proxy
 
 
 cdef int _need_reset_gl = 1
@@ -38,11 +39,12 @@ cdef void reset_gl_context():
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1)
 
 
-cdef class Instruction:
+cdef class Instruction(ObjectWithUid):
     '''Represents the smallest instruction available. This class is for internal
     usage only, don't use it directly.
     '''
     def __cinit__(self):
+        self.__proxy_ref = None
         self.flags = 0
         self.parent = None
 
@@ -55,13 +57,23 @@ cdef class Instruction:
         if self.parent:
             self.parent.add(self)
 
-    cdef void apply(self):
-        pass
+    cdef int apply(self) except -1:
+        return 0
 
-    cdef void flag_update(self, int do_parent=1):
-        if do_parent == 1 and self.parent is not None:
-            self.parent.flag_update()
-        self.flags |= GI_NEEDS_UPDATE
+    IF DEBUG:
+        cdef int flag_update(self, int do_parent=1, list _instrs=None) except -1:
+            cdef list instrs = _instrs if _instrs else []
+            if _instrs and self in _instrs:
+                raise RuntimeError('Encountered instruction group render loop: %r in %r' % (self, _instrs,))
+            if do_parent == 1 and self.parent is not None:
+                instrs.append(self)
+                self.parent.flag_update(do_parent=1, _instrs=instrs)
+            self.flags |= GI_NEEDS_UPDATE
+    ELSE:
+        cdef void flag_update(self, int do_parent=1):
+            if do_parent == 1 and self.parent is not None:
+                self.parent.flag_update()
+            self.flags |= GI_NEEDS_UPDATE
 
     cdef void flag_update_done(self):
         self.flags &= ~GI_NEEDS_UPDATE
@@ -94,10 +106,35 @@ cdef class Instruction:
                 return True
             return False
 
+    property proxy_ref:
+        '''Return a proxy reference to the Instruction i.e. without creating a
+        reference of the widget. See `weakref.proxy
+        <http://docs.python.org/2/library/weakref.html?highlight=proxy#weakref.proxy>`_
+        for more information.
+
+        .. versionadded:: 1.7.2
+        '''
+        def __get__(self):
+            if self.__proxy_ref is None:
+                self.__proxy_ref = proxy(self)
+            return self.__proxy_ref
+
 
 cdef class InstructionGroup(Instruction):
-    '''Group of :class:`Instruction`. Adds the possibility of adding and
-    removing graphics instruction.
+    '''Group of :class:`Instructions <Instruction>`. Allows for the adding and
+    removing of graphics instructions. It can be used directly as follows::
+
+        blue = InstructionGroup()
+        blue.add(Color(0, 0, 1, 0.2))
+        blue.add(Rectangle(pos=self.pos, size=(100, 100)))
+
+        green = InstructionGroup()
+        green.add(Color(0, 1, 0, 0.4))
+        green.add(Rectangle(pos=(100, 100), size=(100, 100)))
+
+        # Here, self should be a Widget or subclass
+        [self.canvas.add(group) for group in [blue, green]]
+
     '''
     def __init__(self, **kwargs):
         Instruction.__init__(self, **kwargs)
@@ -108,7 +145,7 @@ cdef class InstructionGroup(Instruction):
         else:
             self.compiler = GraphicsCompiler()
 
-    cdef void apply(self):
+    cdef int apply(self) except -1:
         cdef Instruction c
         cdef list children
         if self.compiler is not None:
@@ -124,6 +161,7 @@ cdef class InstructionGroup(Instruction):
         else:
             for c in self.children:
                 c.apply()
+        return 0
 
     cdef void build(self):
         self.compiled_children = self.compiler.compile(self)
@@ -137,7 +175,7 @@ cdef class InstructionGroup(Instruction):
         return
 
     cpdef insert(self, int index, Instruction c):
-        '''Insert a new :class:`Instruction` in our list at index.
+        '''Insert a new :class:`Instruction` into our list at index.
         '''
         c.rinsert(self, index)
         self.flag_update()
@@ -159,7 +197,7 @@ cdef class InstructionGroup(Instruction):
         return len(self.children)
 
     cpdef clear(self):
-        '''Remove all the :class:`Instruction`.
+        '''Remove all the :class:`Instructions <Instruction>`.
         '''
         cdef Instruction c
         for c in self.children[:]:
@@ -168,7 +206,8 @@ cdef class InstructionGroup(Instruction):
             self.remove(c)
 
     cpdef remove_group(self, str groupname):
-        '''Remove all :class:`Instruction` with a specific group name.
+        '''Remove all :class:`Instructions <Instruction>` with a specific group
+        name.
         '''
         cdef Instruction c
         for c in self.children[:]:
@@ -178,8 +217,8 @@ cdef class InstructionGroup(Instruction):
                 self.remove(c)
 
     cpdef get_group(self, str groupname):
-        '''Return an iterable with all the :class:`Instruction` with a specific
-        group name.
+        '''Return an iterable for all the :class:`Instructions <Instruction>`
+        with a specific group name.
         '''
         cdef Instruction c
         return [c for c in self.children if c.group == groupname]
@@ -208,7 +247,7 @@ cdef class ContextInstruction(Instruction):
         cdef RenderContext context = getActiveContext()
         return context
 
-    cdef void apply(self):
+    cdef int apply(self) except -1:
         cdef RenderContext context = self.get_context()
         if self.context_push:
             context.push_states(self.context_push)
@@ -216,19 +255,19 @@ cdef class ContextInstruction(Instruction):
             context.set_states(self.context_state)
         if self.context_pop:
             context.pop_states(self.context_pop)
+        return 0
 
-    cdef void set_state(self, str name, value):
+    cdef int set_state(self, str name, value) except -1:
         self.context_state[name] = value
         self.flag_update()
 
-    cdef void push_state(self, str name):
+    cdef int push_state(self, str name) except -1:
         self.context_push.append(name)
         self.flag_update()
 
-    cdef void pop_state(self, str name):
+    cdef int pop_state(self, str name) except -1:
         self.context_pop.append(name)
         self.flag_update()
-
 
 cdef class VertexInstruction(Instruction):
     '''The VertexInstruction class is the base for all graphics instructions
@@ -240,7 +279,9 @@ cdef class VertexInstruction(Instruction):
         # this instruction before the actual vertex instruction
         self.texture_binding = BindTexture(noadd=True, **kwargs)
         self.texture = self.texture_binding.texture #auto compute tex coords
-        self.tex_coords = kwargs.get('tex_coords', self._tex_coords)
+        tex_coords = kwargs.get('tex_coords')
+        if tex_coords:
+            self.tex_coords = tex_coords
 
         Instruction.__init__(self, **kwargs)
         self.flags = GI_VERTEX_DATA & GI_NEEDS_UPDATE
@@ -277,7 +318,7 @@ cdef class VertexInstruction(Instruction):
             with self.canvas:
                 Rectangle(texture=texture, pos=self.pos, size=self.size)
 
-        Usually, you will use the :data:`source` attribute instead of the
+        Usually, you will use the :attr:`source` attribute instead of the
         texture.
         '''
         def __get__(self):
@@ -303,13 +344,13 @@ cdef class VertexInstruction(Instruction):
             <MyWidget>:
                 canvas:
                     Rectangle:
-                        source: 'myfilename.png'
+                        source: 'mylogo.png'
                         pos: self.pos
                         size: self.size
 
         .. note::
 
-            The filename will be searched with the
+            The filename will be searched for using the
             :func:`kivy.resources.resource_find` function.
 
         '''
@@ -329,32 +370,43 @@ cdef class VertexInstruction(Instruction):
 
             [u, v, u + w, v, u + w, y + h, u, y + h]
 
-        You can pass your own texture coordinates, if you want to achieve fancy
+        You can pass your own texture coordinates if you want to achieve fancy
         effects.
 
         .. warning::
 
-            The default value as mentioned before can be negative. Depending
+            The default values just mentioned can be negative. Depending
             on the image and label providers, the coordinates are flipped
-            vertically, because of the order in which the image is internally
+            vertically because of the order in which the image is internally
             stored. Instead of flipping the image data, we are just flipping
             the texture coordinates to be faster.
 
         '''
         def __get__(self):
-            return self._tex_coords
+            return (
+                self._tex_coords[0],
+                self._tex_coords[1],
+                self._tex_coords[2],
+                self._tex_coords[3],
+                self._tex_coords[4],
+                self._tex_coords[5],
+                self._tex_coords[6],
+                self._tex_coords[7])
         def __set__(self, tc):
-            self._tex_coords = list(tc)
+            cdef int index
+            for index in xrange(8):
+                self._tex_coords[index] = tc[index]
             self.flag_update()
 
     cdef void build(self):
         pass
 
-    cdef void apply(self):
+    cdef int apply(self) except -1:
         if self.flags & GI_NEEDS_UPDATE:
             self.build()
             self.flag_update_done()
         self.batch.draw()
+        return 0
 
 
 cdef class Callback(Instruction):
@@ -379,8 +431,8 @@ cdef class Callback(Instruction):
         Note that if you perform many and/or costly calls to callbacks, you
         might potentially slow down the rendering performance significantly.
 
-    The drawing of your canvas can not happen until something new happens. From
-    your callback, you can ask for an update::
+    The updating of your canvas does not occur until something new happens.
+    From your callback, you can ask for an update::
 
         with self.canvas:
             self.cb = Callback(self.my_callback)
@@ -392,13 +444,13 @@ cdef class Callback(Instruction):
     have been manipulated by the other toolkit, and as soon as program flow
     returns to Kivy, it will just break. You can have glitches, crashes, black
     holes might occur, etc.
-    To avoid that, you can activate the :data:`reset_context` option. It will
-    reset the OpenGL context state to make Kivy's rendering correct, after the
+    To avoid that, you can activate the :attr:`reset_context` option. It will
+    reset the OpenGL context state to make Kivy's rendering correct after the
     call to your callback.
 
     .. warning::
 
-        The :data:`reset_context` is not a full OpenGL reset. If you have issues
+        The :attr:`reset_context` is not a full OpenGL reset. If you have issues
         regarding that, please contact us.
 
     '''
@@ -416,7 +468,7 @@ cdef class Callback(Instruction):
         '''
         self.flag_update()
 
-    cdef void apply(self):
+    cdef int apply(self) except -1:
         cdef RenderContext rcx
         cdef Context ctx
         cdef Shader shader
@@ -448,7 +500,7 @@ cdef class Callback(Instruction):
 
             # reset all the vertexformat in all shaders
             ctx = get_context()
-            for obj in ctx.l_shader:
+            for obj in ctx.lr_shader:
                 shader = obj()
                 if not shader:
                     continue
@@ -462,9 +514,11 @@ cdef class Callback(Instruction):
                 rcx.set_texture(index, texture)
 
             reset_gl_context()
+        return 0
 
-    cdef void enter(self):
+    cdef int enter(self) except -1:
         self._shader.use()
+        return 0
 
     property reset_context:
         '''Set this to True if you want to reset the OpenGL context for Kivy
@@ -481,6 +535,8 @@ cdef class Callback(Instruction):
 
 
 cdef class CanvasBase(InstructionGroup):
+    '''CanvasBase provides the context manager methods for the
+    :class:`Canvas`.'''
     def __enter__(self):
         pushActiveCanvas(self)
 
@@ -531,6 +587,7 @@ cdef class Canvas(CanvasBase):
         '''
 
     cpdef clear(self):
+        '''Clears every :class:`Instruction` in the canvas, leaving it clean.'''
         cdef Instruction c
         for c in self.children[:]:
             if c is self._before or c is self._after:
@@ -540,11 +597,11 @@ cdef class Canvas(CanvasBase):
             self.remove(c)
 
     cpdef draw(self):
-        '''Apply the instruction on our window.
+        '''Apply the instruction to our window.
         '''
         self.apply()
 
-    cdef void apply(self):
+    cdef int apply(self) except -1:
         cdef float opacity = self._opacity
         cdef float rc_opacity
         cdef RenderContext rc
@@ -556,6 +613,7 @@ cdef class Canvas(CanvasBase):
         InstructionGroup.apply(self)
         if opacity != 1.0:
             rc.pop_state('opacity')
+        return 0
 
     cpdef add(self, Instruction c):
         # the after group must remain the last one.
@@ -597,7 +655,7 @@ cdef class Canvas(CanvasBase):
             return self._after
 
     property has_before:
-        '''Property to see if the canvas.before is already created
+        '''Property to see if the :attr:`before` group has already been created.
 
         .. versionadded:: 1.7.0
         '''
@@ -605,7 +663,7 @@ cdef class Canvas(CanvasBase):
             return self._before is not None
 
     property has_after:
-        '''Property to see if the canvas.after is already created
+        '''Property to see if the :attr:`after` group has already been created.
 
         .. versionadded:: 1.7.0
         '''
@@ -614,17 +672,17 @@ cdef class Canvas(CanvasBase):
 
 
     property opacity:
-        '''Property for get/set the opacity value of the canvas.
+        '''Property to get/set the opacity value of the canvas.
 
         .. versionadded:: 1.4.1
 
         The opacity attribute controls the opacity of the canvas and its
         children.  Be careful, it's a cumulative attribute: the value is
-        multiplied to the current global opacity, and the result is applied to
+        multiplied to the current global opacity and the result is applied to
         the current context color.
 
-        For example: if your parent have an opacity of 0.5, and one children have an
-        opacity of 0.2, the real opacity of the children will be 0.5 * 0.2 = 0.1.
+        For example: if your parent has an opacity of 0.5 and a child has an
+        opacity of 0.2, the real opacity of the child will be 0.5 * 0.2 = 0.1.
 
         Then, the opacity is applied on the shader as::
 
@@ -733,29 +791,29 @@ cdef class RenderContext(Canvas):
     cdef get_state(self, str name):
         return self.state_stacks[name][-1]
 
-    cdef void set_states(self, dict states):
+    cdef int set_states(self, dict states) except -1:
         cdef str name
         for name, value in states.iteritems():
             self.set_state(name, value)
 
-    cdef void push_state(self, str name):
+    cdef int push_state(self, str name) except -1:
         stack = self.state_stacks[name]
         stack.append(stack[-1])
         self.flag_update()
 
-    cdef void push_states(self, list names):
+    cdef int push_states(self, list names) except -1:
         cdef str name
         for name in names:
             self.push_state(name)
 
-    cdef void pop_state(self, str name):
+    cdef int pop_state(self, str name) except -1:
         stack = self.state_stacks[name]
         oldvalue = stack.pop()
         if oldvalue != stack[-1]:
             self.set_state(name, stack[-1])
             self.flag_update()
 
-    cdef void pop_states(self, list names):
+    cdef int pop_states(self, list names) except -1:
         cdef str name
         for name in names:
             self.pop_state(name)
@@ -775,13 +833,15 @@ cdef class RenderContext(Canvas):
         texture.bind()
         self.flag_update()
 
-    cdef void enter(self):
+    cdef int enter(self) except -1:
         self._shader.use()
+        return 0
 
-    cdef void leave(self):
+    cdef int leave(self) except -1:
         self._shader.stop()
+        return 0
 
-    cdef void apply(self):
+    cdef int apply(self) except -1:
         cdef list keys
         if PY2:
             keys = self.state_stacks.keys()
@@ -803,6 +863,8 @@ cdef class RenderContext(Canvas):
         self.pop_states(keys)
         popActiveContext()
         self.flag_update_done()
+
+        return 0
 
     cdef void reload(self):
         pushActiveContext(self)
